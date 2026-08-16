@@ -704,11 +704,7 @@ function gotoSlide(i){
 /* ---------- steps ----------
    DDL problems get a 4th action: a \d schema-check.
    states: 0 read · 1 answer typed · 2 executed · 3 verify typed · 4 verified */
-function hasVerify(p){
-  const c=p.code.toUpperCase();
-  if(/CREATE\s+DATABASE|CREATE\s+USER/.test(c))return false;
-  return /^\s*(CREATE\s+TABLE|ALTER\s+TABLE|DROP\s+TABLE|TRUNCATE)/.test(c);
-}
+function hasVerify(p){return false;} /* schema-check step disabled */
 function maxStep(p){return hasVerify(p)?4:2;}
 function focusTable(p){
   const s=SCHEMA[p.num];
