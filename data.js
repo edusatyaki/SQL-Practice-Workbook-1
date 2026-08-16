@@ -769,6 +769,21 @@ GRANT SELECT ON students TO faculty_user;`,
   }
 ];
 
+/* ---- PSQL Tool sessions ----
+   Problems using psql backslash meta-commands (\c, \l, \d …) must run in
+   pgAdmin's PSQL Tool, not the Query Tool. These render as a terminal. */
+const PSQL={
+  "0.1":{
+    banner:'psql (18.0)\nType "help" for help.\n',
+    steps:[
+      {prompt:"postgres=#",cmd:"CREATE DATABASE university;",out:"CREATE DATABASE"},
+      {prompt:"postgres=#",cmd:"\\c university",out:'You are now connected to database "university" as user "postgres".'},
+      {prompt:"university=#",cmd:"SELECT current_database();",out:" current_database\n------------------\n university\n(1 row)"}
+    ],
+    endPrompt:"university=#"
+  }
+};
+
 /* ---- live schema/design state per problem ----
    before  = table structure before the query
    after   = table structure after the query (diffed automatically:
