@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>pgAdmin 4 — SQL Practice Workbook</title>
+<style>
+  :root{
+    --bg:#2e2e2e;            /* app background */
+    --title:#333333;         /* window title bar */
+    --rail:#383d45;          /* left icon rail */
+    --rail-active:#4a5160;
+    --toolbar:#333333;
+    --panel:#2b2b2b;
+    --panelhdr:#333333;
+    --editor:#1f1f1f;        /* query editor */
+    --gutter:#1a1a1a;
+    --gutter-num:#6a6a6a;
+    --border:#464646;
+    --border2:#3a3a3a;
+    --grid-border:#3a3a3a;
+    --grid-head:#343434;
+    --text:#dcdcdc;
+    --muted:#9a9a9a;
+    --faint:#6f6f6f;
+    --accent:#4a93cf;        /* pgAdmin blue */
+    --accent-dim:#2f6d9e;
+    --green:#5cb85c;
+    --err:#ff9a9a;
+    --kw:#569cd6;            /* VS-code-ish sql colors for editor */
+    --kw2:#c586c0;
+    --str:#ce9178;
+    --num:#b5cea8;
+    --com:#6a9955;
+    --fn:#dcdcaa;
+    --type:#4ec9b0;
+    --punct:#d4d4d4;
+    --mono:"SF Mono",SFMono-Regular,ui-monospace,"JetBrains Mono","Cascadia Code",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:#111;color:var(--text);font-family:var(--sans);font-size:13px;overflow:hidden;-webkit-font-smoothing:antialiased}
+  button{font-family:inherit;color:inherit;cursor:pointer}
+  .app{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg)}
+
+  /* ---------- window title bar ---------- */
+  .titlebar{height:38px;background:var(--title);display:flex;align-items:center;gap:12px;padding:0 14px;border-bottom:1px solid #000;flex-shrink:0;position:relative}
+  .lights{display:flex;gap:8px}
+  .lights i{width:12px;height:12px;border-radius:50%;display:block}
+  .lights i:nth-child(1){background:#ff5f57}.lights i:nth-child(2){background:#febc2e}.lights i:nth-child(3){background:#28c840}
+  .wtitle{position:absolute;left:0;right:0;text-align:center;font-size:13px;color:#cfcfcf;font-weight:500;pointer-events:none}
+  .tb-right{margin-left:auto;display:flex;align-items:center;gap:8px;z-index:2}
+  .tb-btn{background:#3d3d3d;border:1px solid var(--border);color:#cfcfcf;padding:5px 11px;border-radius:5px;font-size:12px;display:inline-flex;align-items:center;gap:6px;transition:.12s}
+  .tb-btn:hover{background:#474747;border-color:var(--accent)}
+  .tb-count{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .tb-count b{color:#fff}
+  kbd{font-family:var(--mono);background:#262626;border:1px solid var(--border);border-bottom-width:2px;border-radius:4px;padding:0 5px;font-size:10.5px;color:#bdbdbd}
+
+  .body{flex:1;display:flex;min-height:0}
+  /* ---------- left icon rail ---------- */
+  .rail{width:48px;background:var(--rail);display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:4px;flex-shrink:0;border-right:1px solid #000}
+  .rail .ic{width:34px;height:34px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#c3c8d1;opacity:.8}
+  .rail .ic svg{width:19px;height:19px}
+  .rail .ic.active{background:var(--rail-active);opacity:1;color:#fff}
+  .rail .grow{flex:1}
+
+  .content{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+
+  /* ---------- tab strip ---------- */
+  .tabstrip{height:34px;background:#2a2a2a;display:flex;align-items:stretch;border-bottom:1px solid var(--border2);flex-shrink:0}
+  .tab{display:flex;align-items:center;gap:8px;padding:0 14px;font-size:12.5px;color:var(--muted);border-right:1px solid var(--border2);background:#282828;position:relative;max-width:340px}
+  .tab .ti{width:15px;height:15px;color:#8fb4d4;flex-shrink:0}
+  .tab .x{color:var(--faint);font-size:14px;line-height:1;margin-left:2px}
+  .tab .x:hover{color:#fff}
+  .tab.active{background:var(--bg);color:#fff}
+  .tab.active::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--accent)}
+  .tab .lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tab .menu3{margin-left:auto;color:var(--faint);padding:0 8px;font-size:16px;letter-spacing:1px}
+
+  /* ---------- connection + toolbar row ---------- */
+  .connbar{height:42px;background:var(--toolbar);display:flex;align-items:center;gap:8px;padding:0 10px;border-bottom:1px solid var(--border2);flex-shrink:0}
+  .icobtn{width:30px;height:28px;border-radius:5px;border:1px solid transparent;background:transparent;color:#cbcbcb;display:inline-flex;align-items:center;justify-content:center}
+  .icobtn svg{width:16px;height:16px}
+  .icobtn:hover{background:#414141;border-color:var(--border)}
+  .conn-select{flex:0 1 360px;height:28px;background:#262626;border:1px solid var(--border);border-radius:5px;display:flex;align-items:center;gap:8px;padding:0 10px;font-size:12.5px;color:#d6d6d6}
+  .conn-select .caret{margin-left:auto;color:var(--muted)}
+  .conn-select .plug{color:#7fd0a0}
+  .db-ico{color:#8fb4d4}
+
+  .toolbar{height:44px;background:var(--toolbar);display:flex;align-items:center;gap:3px;padding:0 8px;border-bottom:1px solid var(--border2);flex-shrink:0}
+  .toolbar .sep{width:1px;height:22px;background:var(--border);margin:0 5px}
+  .tool{height:30px;min-width:30px;padding:0 6px;border-radius:5px;border:1px solid transparent;background:transparent;color:#cfcfcf;display:inline-flex;align-items:center;justify-content:center;gap:3px}
+  .tool svg{width:16px;height:16px}
+  .tool:hover{background:#414141;border-color:var(--border)}
+  .tool.disabled{opacity:.4;pointer-events:none}
+  .tool .cap{font-size:11px;color:#bdbdbd}
+  .tool .mini{font-size:9px;color:var(--muted)}
+  .limit{height:28px;background:#262626;border:1px solid var(--border);border-radius:5px;display:flex;align-items:center;gap:8px;padding:0 10px;font-size:12px;color:#cfcfcf}
+  .limit .caret{color:var(--muted)}
+  #btnExecute{color:#e6e6e6}
+  #btnExecute .play{color:#7ec97e}
+  #btnExecute.ready{background:rgba(92,184,92,.16);border-color:var(--green);box-shadow:0 0 0 1px rgba(92,184,92,.25)}
+  #btnExecute.ready .play{color:#8ff08f}
+  #btnExecute.ready{animation:execpulse 1.4s infinite}
+  @keyframes execpulse{0%,100%{box-shadow:0 0 0 1px rgba(92,184,92,.25)}50%{box-shadow:0 0 0 4px rgba(92,184,92,.18)}}
+
+  /* ---------- work area ---------- */
+  .work{flex:1;display:flex;flex-direction:column;min-height:0}
+  .subtabs{height:32px;background:#2a2a2a;display:flex;align-items:stretch;border-bottom:1px solid var(--border2);flex-shrink:0}
+  .subtab{display:flex;align-items:center;padding:0 16px;font-size:12.5px;color:var(--muted);position:relative}
+  .subtab.active{color:#fff}
+  .subtab.active::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--accent)}
+  .subtabs .right{margin-left:auto;display:flex;align-items:stretch;border-left:1px solid var(--border2)}
+  .subtabs .right .subtab{border:none}
+  .subtabs .expand{display:flex;align-items:center;padding:0 12px;color:var(--faint)}
+
+  .editrow{flex:1;display:flex;min-height:0}
+  .editor-col{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--editor)}
+  .qeditor{flex:1;display:flex;min-height:0;position:relative;overflow:auto}
+  .gutter{background:var(--gutter);color:var(--gutter-num);font-family:var(--mono);font-size:13.5px;line-height:1.62;text-align:right;padding:12px 10px 12px 14px;user-select:none;white-space:pre;flex-shrink:0;min-width:46px}
+  .codewrap{flex:1;padding:12px 16px;cursor:text;min-width:0}
+  pre.code{font-family:var(--mono);font-size:13.5px;line-height:1.62;white-space:pre;color:#d4d4d4;tab-size:2}
+  .cursor{display:inline-block;width:2px;height:1.15em;background:#dcdcdc;vertical-align:text-bottom;animation:blink 1.05s steps(1) infinite;margin-left:1px}
+  @keyframes blink{50%{opacity:0}}
+  .cursor.hidden{display:none}
+  .edit-hint{position:absolute;top:12px;left:62px;color:var(--faint);font-family:var(--mono);font-size:13px;display:flex;align-items:center;gap:9px;pointer-events:none;white-space:nowrap}
+
+  /* right scratch/problem panel */
+  .scratch{width:340px;flex-shrink:0;background:var(--panel);border-left:1px solid var(--border2);display:flex;flex-direction:column;min-height:0}
+  .scratch-hdr{height:32px;background:#2a2a2a;display:flex;align-items:center;padding:0 14px;font-size:12.5px;color:#fff;border-bottom:1px solid var(--border2);gap:8px}
+  .scratch-hdr .x{margin-left:auto;color:var(--faint)}
+  .scratch-body{flex:1;overflow:auto;padding:16px}
+  .sc-num{display:inline-block;font-family:var(--mono);font-weight:700;font-size:12px;color:#04121f;background:var(--accent);padding:3px 9px;border-radius:5px;margin-bottom:8px}
+  .sc-unit{font-family:var(--mono);font-size:10.5px;letter-spacing:1px;color:var(--accent);text-transform:uppercase;margin-bottom:4px}
+  .sc-title{font-size:16px;font-weight:650;line-height:1.25;margin-bottom:14px}
+  .sc-sec{font-family:var(--mono);font-size:10.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin:16px 0 7px;display:flex;align-items:center;gap:7px}
+  .sc-sec .d{width:6px;height:6px;border-radius:1px;background:var(--faint)}
+  .sc-quest{font-size:13.5px;line-height:1.55;color:#cececd}
+  .sc-quest b{color:#8fe0a0;font-family:var(--mono);font-size:12.5px;background:rgba(92,184,92,.12);padding:0 4px;border-radius:3px}
+  .sc-given{font-family:var(--mono);font-size:11.5px;line-height:1.55;color:#b4bcc6;white-space:pre;background:#242424;border:1px solid var(--border2);border-radius:7px;padding:10px 12px;overflow:auto}
+  .sc-hints{position:relative}
+  .sc-hints ol{list-style:none;counter-reset:h;margin-top:2px}
+  .sc-hints li{counter-increment:h;position:relative;padding:6px 8px 6px 30px;font-size:12.2px;line-height:1.45;color:#c3c3c3}
+  .sc-hints li::before{content:counter(h);position:absolute;left:4px;top:6px;width:18px;height:18px;border-radius:50%;background:rgba(74,147,207,.18);color:var(--accent);font-family:var(--mono);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .sc-hints.locked ol{filter:blur(5px);opacity:.4}
+  .sc-hints .lock{position:absolute;inset:24px 0 0 0;display:flex;align-items:flex-start;justify-content:center;color:var(--muted);font-size:12px;padding-top:14px}
+  .sc-hints:not(.locked) .lock{display:none}
+
+  /* ---------- bottom output ---------- */
+  .bottom{height:200px;background:var(--panel);border-top:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+  .outtabs{height:32px;display:flex;align-items:stretch;border-bottom:1px solid var(--border2);flex-shrink:0}
+  .outtab{display:flex;align-items:center;padding:0 16px;font-size:12.5px;color:var(--muted);position:relative}
+  .outtab.active{color:#fff}
+  .outtab.active::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--accent)}
+  .outtab .badge{margin-left:7px;background:#444;color:#ddd;border-radius:8px;font-size:10px;padding:0 6px;font-family:var(--mono)}
+  .outbody{flex:1;overflow:auto}
+  .out-pane{display:none;height:100%}
+  .out-pane.active{display:block}
+  .out-empty{color:var(--faint);font-family:var(--mono);font-size:12.5px;padding:16px 18px;display:flex;align-items:center;gap:10px}
+  .out-pre{font-family:var(--mono);font-size:12.5px;line-height:1.6;white-space:pre;color:#cfe6d6;padding:12px 16px}
+  .msg-ok{color:var(--green);font-family:var(--mono);font-size:12.5px;padding:12px 16px;line-height:1.7}
+  .msg-ok .cmd{color:#dcdcaa}
+  .msg-err{color:var(--err);font-family:var(--mono);font-size:12.5px;padding:12px 16px;line-height:1.7}
+  .spinner{width:13px;height:13px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .arrow{color:#e3b341}.errline{color:var(--err)}
+  .fade{animation:fade .35s ease}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+
+  /* data grid (pgAdmin Data Output) */
+  .grid-wrap{overflow-x:auto;padding:0}
+  .grid{border-collapse:collapse;font-size:12.5px;width:max-content;min-width:100%}
+  .grid th,.grid td{border:1px solid var(--grid-border);padding:4px 14px;text-align:left;white-space:nowrap;height:26px}
+  .grid thead th{background:var(--grid-head);color:var(--text);font-weight:600;font-family:var(--sans);position:sticky;top:0;z-index:1;text-align:center}
+  .grid tbody td{font-family:var(--mono);color:#d4e6db}
+  .grid td.rownum,.grid th.rownum{background:var(--grid-head);color:var(--muted);text-align:right;font-family:var(--mono);user-select:none;min-width:30px}
+  .grid td.num{text-align:right}
+  .grid td.nullcell{color:var(--faint);font-style:italic}
+  .grid .newtag{color:#e3b341;font-style:normal}
+  .out-note{font-family:var(--mono);font-size:12px;color:var(--muted);padding:9px 16px;line-height:1.6;white-space:pre}
+  .out-note .arrow{color:#e3b341}
+
+  /* live schema card (Scratch Pad) */
+  .sch-phase{font-family:var(--mono);font-size:9.5px;letter-spacing:.5px;color:var(--muted);text-transform:none}
+  .sch-phase.after{color:var(--green)}
+  .sch-table{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin:0 0 10px;background:var(--panel2)}
+  .sch-th{background:var(--grid-head);padding:6px 10px;font-family:var(--mono);font-size:12px;font-weight:700;display:flex;align-items:center;gap:7px;color:var(--text)}
+  .sch-th .ti2{color:#8fb4d4;flex-shrink:0}
+  .sch-table.tdrop{opacity:.55}
+  .sch-table.tdrop .sch-th{color:var(--err)}
+  .sch-col{display:flex;align-items:center;gap:8px;padding:5px 10px;border-top:1px solid var(--border2);font-family:var(--mono);font-size:11.5px}
+  .sch-col .cn{color:var(--text);white-space:nowrap}
+  .sch-col .cn .key{color:#e3b341;margin-right:2px;font-size:10px}
+  .sch-col .ct{color:var(--muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sch-col .bd{display:flex;gap:3px;flex-shrink:0}
+  .sch-col .bd span{font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;font-family:var(--mono)}
+  .b-PK{background:rgba(227,179,65,.2);color:#e3b341}
+  .b-NN{background:rgba(74,147,207,.22);color:#6cb0e6}
+  .b-UQ{background:rgba(197,134,192,.22);color:#c586c0}
+  .b-FK{background:rgba(78,201,176,.22);color:#4ec9b0}
+  .b-CHK{background:rgba(227,179,65,.16);color:#d9a441}
+  .b-DEF{background:rgba(150,150,150,.22);color:#b0b0b0}
+  .b-SER{background:rgba(92,184,92,.22);color:#7ec97e}
+  .sch-col.add{background:rgba(92,184,92,.15)}
+  .sch-col.add .cn{color:#8ff08f}
+  .sch-col.mod{background:rgba(227,179,65,.15)}
+  .sch-col.drop{background:rgba(255,120,120,.12)}
+  .sch-col.drop .cn,.sch-col.drop .ct{text-decoration:line-through;opacity:.75}
+  .sch-none{font-family:var(--mono);font-size:11.5px;color:var(--faint);padding:8px 2px}
+  .sch-note{font-size:11.5px;color:var(--muted);margin:2px 0 4px;line-height:1.45;padding:7px 10px;background:var(--panel2);border:1px solid var(--border2);border-radius:7px}
+  .sch-note b{color:#8ff08f}
+  html.light .sch-note b,html.light .sch-col.add .cn{color:#1f7a34}
+  html.light .sch-table{background:#fbfbfb}
+  html.light .b-DEF{color:#777}
+
+  /* object explorer tree */
+  .treepanel{width:252px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+  .treepanel.collapsed{display:none}
+  .tree-hdr{height:34px;display:flex;align-items:center;padding:0 13px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border2);text-transform:uppercase;letter-spacing:1.3px;font-family:var(--mono);flex-shrink:0}
+  .tree-hdr .x{margin-left:auto;color:var(--faint);cursor:pointer;font-size:15px}
+  .tree{flex:1;overflow:auto;padding:6px 0;font-size:12.5px}
+  .tnode{display:flex;align-items:center;gap:5px;height:25px;cursor:pointer;color:var(--text);white-space:nowrap}
+  .tnode:hover{background:rgba(255,255,255,.06)}
+  .tnode.current{background:rgba(74,147,207,.20)}
+  .tri{width:12px;text-align:center;color:var(--muted);font-size:9px;flex-shrink:0}
+  .ticon{width:16px;text-align:center;font-size:12px;flex-shrink:0}
+  .tlbl{overflow:hidden;text-overflow:ellipsis}
+
+  /* ---------- LIGHT THEME ---------- */
+  html.light{
+    --bg:#f6f6f6;--title:#e9e9e9;--rail:#e0e3e8;--rail-active:#c7d3e2;--toolbar:#f0f0f0;
+    --panel:#f6f6f6;--panelhdr:#e9e9e9;--editor:#ffffff;--gutter:#f0f0f0;--gutter-num:#a6a6a6;
+    --border:#cfcfcf;--border2:#e2e2e2;--text:#2b2b2b;--muted:#6b6b6b;--faint:#9a9a9a;
+    --accent:#2f6d9e;--green:#2e7d32;--err:#c62828;
+    --kw:#0033b3;--kw2:#7b1fa2;--str:#a31515;--num:#098658;--com:#008000;--fn:#795e26;--type:#267f99;--punct:#2b2b2b;
+    --grid-border:#d7d7d7;--grid-head:#eef1f4;
+  }
+  html.light body{background:#cfcfcf}
+  html.light .lights i{filter:none}
+  html.light .wtitle{color:#333}
+  html.light .tb-btn{background:#fff;color:#444}
+  html.light .tabstrip{background:#e4e4e4}
+  html.light .tab{background:#dcdcdc;color:#555}
+  html.light .tab.active{background:var(--bg);color:#111}
+  html.light .menu3{color:#999}
+  html.light .conn-select,html.light .limit{background:#fff;color:#333}
+  html.light .icobtn,html.light .tool{color:#4a4a4a}
+  html.light .icobtn:hover,html.light .tool:hover{background:#e2e2e2}
+  html.light .subtabs,html.light .scratch-hdr,html.light .tree-hdr{background:#e9e9e9}
+  html.light .scratch-hdr{color:#111}
+  html.light .sc-given{background:#f1f1f1;color:#33403a;border-color:#dcdcdc}
+  html.light .sc-title{color:#111}
+  html.light .rail .ic{color:#555}
+  html.light .rail .ic.active{background:#c7d3e2;color:#123}
+  html.light pre.code{color:#2b2b2b}
+  html.light .cursor{background:#333}
+  html.light .grid tbody td{color:#24422e}
+  html.light .out-pre{color:#1f3d2a}
+  html.light .out-note{color:#666}
+  html.light .msg-ok{color:#2e7d32}
+  html.light .tnode{color:#2b2b2b}
+  html.light .tnode:hover{background:rgba(0,0,0,.06)}
+  html.light #overlay{background:rgba(235,235,235,.92)}
+  html.light .ov-close{background:#fff;color:#555}
+  html.light .welcome p{color:#555}
+
+  /* editor syntax */
+  .tok-kw{color:var(--kw)}.tok-kw2{color:var(--kw2)}.tok-str{color:var(--str)}.tok-num{color:var(--num)}
+  .tok-com{color:var(--com)}.tok-fn{color:var(--fn)}.tok-type{color:var(--type)}.tok-punct{color:var(--punct)}.tok-meta{color:#4ec9b0}
+
+  /* ---------- status bar ---------- */
+  .statusbar{height:26px;background:var(--title);border-top:1px solid #000;display:flex;align-items:center;padding:0 14px;font-size:11.5px;color:var(--muted);flex-shrink:0;gap:16px}
+  .statusbar .sright{margin-left:auto;display:flex;gap:18px;font-family:var(--mono)}
+  .statusbar .runtime{color:var(--green)}
+
+  /* ---------- welcome ---------- */
+  .welcome{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px}
+  .welcome .logo{width:74px;height:74px;border-radius:18px;background:linear-gradient(180deg,#4a93cf,#2f6d9e);display:flex;align-items:center;justify-content:center;margin-bottom:26px;box-shadow:0 14px 40px -12px rgba(74,147,207,.6)}
+  .welcome .logo svg{width:40px;height:40px;color:#fff}
+  .welcome h1{font-size:40px;font-weight:750;letter-spacing:-.6px;margin-bottom:12px}
+  .welcome p{color:var(--muted);font-size:15px;max-width:560px;line-height:1.55}
+  .welcome .stats{display:flex;gap:40px;margin-top:34px}
+  .welcome .stat .k{font-family:var(--mono);font-size:10.5px;letter-spacing:1.5px;color:var(--faint);text-transform:uppercase}
+  .welcome .stat .v{font-size:22px;font-weight:700;margin-top:5px}
+  .welcome .stat .v span{color:var(--accent)}
+  .welcome .go{margin-top:40px;background:linear-gradient(180deg,#4a93cf,#2f6d9e);border:none;color:#fff;font-size:14px;font-weight:600;padding:11px 26px;border-radius:9px;display:inline-flex;align-items:center;gap:10px}
+  .welcome .go:hover{filter:brightness(1.1)}
+  .welcome .author{margin-top:44px;color:var(--faint);font-size:12.5px}
+  .welcome .hintline{margin-top:14px;color:var(--muted);font-size:12.5px}
+
+  /* ---------- contents overlay ---------- */
+  #overlay{position:fixed;inset:0;background:rgba(15,15,15,.9);backdrop-filter:blur(6px);z-index:100;display:none;padding:50px 40px;overflow:auto}
+  #overlay.open{display:block;animation:fade .2s}
+  .ov-head{display:flex;align-items:center;max-width:1120px;margin:0 auto 24px}
+  .ov-head h2{font-size:22px;font-weight:700}
+  .ov-close{margin-left:auto;background:#333;border:1px solid var(--border);color:var(--muted);width:38px;height:38px;border-radius:9px;font-size:19px}
+  .ov-close:hover{color:#fff;border-color:var(--accent)}
+  .ov-grid{max-width:1120px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:13px;align-items:start}
+  .ov-unit{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:13px 14px}
+  .ov-unit h3{font-size:12px;color:var(--accent);font-family:var(--mono);margin-bottom:9px;line-height:1.35}
+  .ov-item{display:flex;gap:9px;align-items:baseline;padding:5px 8px;border-radius:7px}
+  .ov-item:hover{background:#363636}
+  .ov-item .n{font-family:var(--mono);font-size:11px;color:var(--num);min-width:32px}
+  .ov-item .t{font-size:12.5px;color:#cececd}
+  .ov-item.current{background:rgba(74,147,207,.16)}.ov-item.current .t{color:#fff}
+  /* visible scrollbars (macOS overlay scrollbars otherwise hide) */
+  .scratch-body::-webkit-scrollbar,.outbody::-webkit-scrollbar,.tree::-webkit-scrollbar,.qeditor::-webkit-scrollbar,.grid-wrap::-webkit-scrollbar,.sc-given::-webkit-scrollbar{width:11px;height:11px}
+  .scratch-body::-webkit-scrollbar-thumb,.outbody::-webkit-scrollbar-thumb,.tree::-webkit-scrollbar-thumb,.qeditor::-webkit-scrollbar-thumb,.grid-wrap::-webkit-scrollbar-thumb,.sc-given::-webkit-scrollbar-thumb{background:var(--border);border-radius:6px;border:2px solid transparent;background-clip:padding-box}
+  .scratch-body::-webkit-scrollbar-thumb:hover,.outbody::-webkit-scrollbar-thumb:hover,.tree::-webkit-scrollbar-thumb:hover{background:var(--faint);background-clip:padding-box;border:2px solid transparent}
+  .scratch-body::-webkit-scrollbar-track,.outbody::-webkit-scrollbar-track,.qeditor::-webkit-scrollbar-track{background:transparent}
+
+  /* draggable divider between editor and output */
+  .vsplit{height:7px;background:var(--panelhdr);border-top:1px solid var(--border2);border-bottom:1px solid var(--border2);cursor:row-resize;flex-shrink:0;position:relative}
+  .vsplit::after{content:"";position:absolute;left:50%;top:50%;width:34px;height:3px;transform:translate(-50%,-50%);background:var(--faint);border-radius:3px}
+  .vsplit:hover,.vsplit.drag{background:var(--accent)}
+  .vsplit:hover::after,.vsplit.drag::after{background:#fff}
+
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- title bar -->
+  <div class="titlebar">
+    <div class="lights"><i></i><i></i><i></i></div>
+    <div class="wtitle">pgAdmin 4</div>
+    <div class="tb-right">
+      <button class="tb-btn" id="contentsBtn">☰ Contents</button>
+      <button class="tb-btn" id="hintBtn">💡 Hints <kbd>H</kbd></button>
+      <button class="tb-btn" id="resetBtn">↺ Reset <kbd>R</kbd></button>
+    </div>
+  </div>
+
+  <div class="body">
+    <!-- left icon rail -->
+    <div class="rail">
+      <div class="ic" id="btnTree" title="Object Explorer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="9" y="2" width="6" height="5" rx="1"/><rect x="3" y="16" width="6" height="5" rx="1"/><rect x="15" y="16" width="6" height="5" rx="1"/><path d="M12 7v5M6 16v-2h12v2"/></svg></div>
+      <div class="ic active" title="Query Tool"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg></div>
+      <div class="ic" title="PSQL Tool"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg></div>
+      <div class="ic" title="Connect"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 7L5 11a3 3 0 000 4l1 1M15 17l4-4a3 3 0 000-4l-1-1M8 16l8-8"/></svg></div>
+      <div class="grow"></div>
+      <div class="ic" id="themeToggle" title="Toggle light / dark theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg></div>
+    </div>
+
+    <!-- object explorer tree (toggled by rail icon) -->
+    <div class="treepanel collapsed" id="treePanel">
+      <div class="tree-hdr">Object Explorer <span class="x" id="treeClose">×</span></div>
+      <div class="tree" id="tree"></div>
+    </div>
+
+    <div class="content">
+      <!-- tab strip -->
+      <div class="tabstrip">
+        <div class="tab" id="tabWelcome"><span class="lbl">Welcome</span><span class="x">×</span></div>
+        <div class="tab" id="tabQuery">
+          <svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/></svg>
+          <span class="lbl">postgres/postgres@PostgreSQL 18</span><span class="x">×</span>
+        </div>
+        <div class="menu3">⋮</div>
+      </div>
+
+      <!-- WELCOME view -->
+      <div class="welcome" id="welcomeView">
+        <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></div>
+        <h1>SQL Practice Workbook</h1>
+        <p>A live walkthrough of 36 PostgreSQL problems. For each one, the query is typed into the editor and executed — you see the answer written and the exact result it returns, right inside pgAdmin.</p>
+        <div class="stats">
+          <div class="stat"><div class="k">Topic</div><div class="v">DDL · DML · TCL · <span>DCL</span></div></div>
+          <div class="stat"><div class="k">Server</div><div class="v">PostgreSQL <span>18</span></div></div>
+          <div class="stat"><div class="k">Problems</div><div class="v"><span>36</span> worked</div></div>
+        </div>
+        <button class="go" id="startBtn">Open Query Tool ▸</button>
+        <div class="hintline">Press <kbd>Space</kbd> / <kbd>→</kbd> to begin · <kbd>H</kbd> hints · <kbd>☰</kbd> contents</div>
+        <div class="author">Educator - Satyaki Das</div>
+      </div>
+
+      <!-- QUERY TOOL view -->
+      <div class="content" id="queryView" style="display:none">
+        <!-- connection bar -->
+        <div class="connbar">
+          <button class="icobtn plug" title="Connection"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 7L5 11a3 3 0 000 4l1 1M15 17l4-4a3 3 0 000-4l-1-1M8 16l8-8"/></svg></button>
+          <div class="conn-select"><span class="db-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/></svg></span><span>postgres/postgres@PostgreSQL 18</span><span class="caret">▾</span></div>
+          <button class="icobtn db-ico" title="Database"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/></svg></button>
+          <div style="flex:1"></div>
+          <button class="icobtn" title="Reset layout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 4v6h6M20 20v-6h-6"/><path d="M20 9A8 8 0 006 5L4 7M4 15a8 8 0 0014 3l2-2"/></svg></button>
+        </div>
+
+        <!-- toolbar -->
+        <div class="toolbar">
+          <button class="tool" title="Open File"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7h6l2 2h10v9a1 1 0 01-1 1H3z"/></svg><span class="mini">▾</span></button>
+          <button class="tool" title="Save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7M8 14h8v7H8z"/></svg><span class="mini">▾</span></button>
+          <div class="sep"></div>
+          <button class="tool" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg><span class="mini">▾</span></button>
+          <button class="tool" title="Filter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></svg><span class="mini">▾</span></button>
+          <div class="limit">No limit <span class="caret">▾</span></div>
+          <div class="sep"></div>
+          <button class="tool" title="Stop"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg></button>
+          <button class="tool" id="btnExecute" title="Execute / Refresh (F5)"><svg class="play" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5l12 7-12 7z"/></svg></button>
+          <button class="tool" title="Execute options"><svg class="play" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5l9 7-9 7z"/></svg><span class="mini">▾</span></button>
+          <div class="sep"></div>
+          <button class="tool" title="Explain"><span class="cap" style="font-weight:700;border:1px solid var(--border);border-radius:3px;padding:0 5px">E</span></button>
+          <button class="tool" title="Explain Analyze"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span class="mini">▾</span></button>
+          <div class="sep"></div>
+          <button class="tool" title="Commit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6"/></svg></button>
+          <button class="tool" title="Rollback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 015 5v1"/></svg></button>
+          <div class="sep"></div>
+          <button class="tool" title="Options"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span class="mini">▾</span></button>
+          <button class="tool" title="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 015 0c0 1.7-2.5 2-2.5 4M12 17h.01"/></svg></button>
+        </div>
+
+        <!-- work: editor + scratch, then bottom output -->
+        <div class="work">
+          <div class="subtabs">
+            <div class="subtab active">Query</div>
+            <div class="subtab">Query History</div>
+            <div class="expand" style="margin-left:auto">⤢</div>
+          </div>
+          <div class="editrow">
+            <div class="editor-col">
+              <div class="qeditor">
+                <div class="gutter" id="gutter">1</div>
+                <div class="codewrap" id="codewrap">
+                  <pre class="code"><span class="typed" id="typed"></span><span class="cursor hidden" id="cursor"></span></pre>
+                </div>
+                <div class="edit-hint" id="editHint">Click here or press <kbd>Space</kbd> to write the query</div>
+              </div>
+            </div>
+            <div class="scratch">
+              <div class="scratch-hdr">Scratch Pad <span class="x">×</span></div>
+              <div class="scratch-body" id="scratchBody"><!-- problem info --></div>
+            </div>
+          </div>
+          <!-- draggable divider (drag up/down to resize output) -->
+          <div class="vsplit" id="vsplit" title="Drag to resize output"></div>
+          <!-- bottom output -->
+          <div class="bottom" id="bottom">
+            <div class="outtabs">
+              <div class="outtab active" data-pane="data">Data Output</div>
+              <div class="outtab" data-pane="messages">Messages</div>
+              <div class="outtab" data-pane="notify">Notifications</div>
+            </div>
+            <div class="outbody">
+              <div class="out-pane active" id="paneData"><div class="out-empty">No data output. Run the query (▶) to see results.</div></div>
+              <div class="out-pane" id="paneMessages"><div class="out-empty">—</div></div>
+              <div class="out-pane" id="paneNotify"><div class="out-empty">No notifications.</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- status bar -->
+  <div class="statusbar">
+    <span id="counter" style="color:var(--muted);font-family:var(--mono)"></span>
+    <span id="stTotal">Total rows: </span>
+    <span id="stStep" style="color:var(--muted)"></span>
+    <span class="sright">
+      <span id="stRuntime" class="runtime"></span>
+      <span>LF</span>
+      <span id="stLnCol">Ln 1, Col 1</span>
+    </span>
+  </div>
+</div>
+
+<!-- contents overlay -->
+<div id="overlay">
+  <div class="ov-head"><h2>Contents · 36 problems</h2><button class="ov-close" id="ovClose">×</button></div>
+  <div class="ov-grid" id="ovGrid"></div>
+</div>
+
+<script src="data.js"></script>
+<script>
+/* ---------- editor syntax highlighter ---------- */
+const KW=new Set("CREATE DATABASE TABLE ALTER DROP ADD COLUMN CONSTRAINT PRIMARY KEY FOREIGN REFERENCES UNIQUE CHECK NOT NULL DEFAULT SET USING RENAME TO INSERT INTO VALUES SELECT FROM WHERE UPDATE DELETE TRUNCATE BEGIN COMMIT ROLLBACK GRANT REVOKE ON USER PASSWORD USAGE SCHEMA AND OR BETWEEN IN AS DO NOTHING CONFLICT EXCLUDED RETURNING WITH PUBLIC TYPE".split(/\s+/));
+const TYPES=new Set("VARCHAR INT INTEGER TEXT SERIAL CHAR BOOLEAN DATE".split(/\s+/));
+const FUNCS=new Set(["LOWER","UPPER","COUNT","current_database"]);
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function hlSQL(code){
+  let o="",i=0,n=code.length;
+  while(i<n){const c=code[i];
+    if(c==="-"&&code[i+1]==="-"){let j=code.indexOf("\n",i);if(j<0)j=n;o+='<span class="tok-com">'+esc(code.slice(i,j))+'</span>';i=j;continue;}
+    if(c==="\\"){let j=i+1;while(j<n&&/[a-zA-Z]/.test(code[j]))j++;o+='<span class="tok-meta">'+esc(code.slice(i,j))+'</span>';i=j;continue;}
+    if(c==="'"){let j=i+1;while(j<n){if(code[j]==="'"&&code[j+1]==="'"){j+=2;continue;}if(code[j]==="'"){j++;break;}j++;}o+='<span class="tok-str">'+esc(code.slice(i,j))+'</span>';i=j;continue;}
+    if(/[0-9]/.test(c)&&!/[a-zA-Z_]/.test(code[i-1]||"")){let j=i;while(j<n&&/[0-9.]/.test(code[j]))j++;o+='<span class="tok-num">'+code.slice(i,j)+'</span>';i=j;continue;}
+    if(/[a-zA-Z_]/.test(c)){let j=i;while(j<n&&/[a-zA-Z0-9_]/.test(code[j]))j++;const w=code.slice(i,j);const U=w.toUpperCase();const paren=code.slice(j).match(/^\s*\(/);
+      if(KW.has(U))o+='<span class="tok-kw">'+w+'</span>';
+      else if(TYPES.has(U))o+='<span class="tok-type">'+w+'</span>';
+      else if(paren||FUNCS.has(w))o+='<span class="tok-fn">'+esc(w)+'</span>';
+      else o+=esc(w);i=j;continue;}
+    if("(),;=<>!+-*/|:".includes(c)){o+='<span class="tok-punct">'+esc(c)+'</span>';i++;continue;}
+    o+=esc(c);i++;}
+  return o;
+}
+function arrowize(s){return esc(s).replace(/(←[^\n]*)/g,'<span class="arrow">$1</span>').replace(/(ERROR:[^\n]*)/g,'<span class="errline">$1</span>');}
+function firstKw(code){const m=code.match(/^\s*([A-Za-z\\]+)/);return m?m[1].toUpperCase():"";}
+function msecFor(num){let h=7;for(const c of num)h=(h*31+c.charCodeAt(0))>>>0;return 41+(h%150);}
+/* parse psql-style output into grid + text segments */
+function isSep(l){return /-/.test(l)&&/^[\s|+\-]+$/.test(l)&&(l.match(/-/g)||[]).length>=3;}
+function splitCols(l){return l.split("|").map(c=>c.trim());}
+function parseOutput(text){
+  const lines=text.split("\n");const segs=[];let i=0;
+  while(i<lines.length){
+    const cur=lines[i],nxt=lines[i+1]||"";
+    if(nxt&&isSep(nxt)&&cur.trim()!==""&&!isSep(cur)){
+      const multi=cur.includes("|");
+      const header=multi?splitCols(cur):[cur.trim()];
+      i+=2;const rows=[];
+      while(i<lines.length){
+        const l=lines[i];
+        if(l.trim()===""||isSep(l)||l.trim().startsWith("("))break;
+        if(multi){if(!l.includes("|"))break;rows.push(splitCols(l));}
+        else{if(l.includes("|"))break;rows.push([l.trim()]);}
+        i++;
+      }
+      segs.push({type:"grid",header,rows});continue;
+    }
+    const buf=[];
+    while(i<lines.length){
+      const l=lines[i],n=lines[i+1]||"";
+      if(n&&isSep(n)&&l.trim()!==""&&!isSep(l))break;
+      buf.push(l);i++;
+    }
+    if(buf.join("").trim()!=="")segs.push({type:"text",lines:buf});
+  }
+  return segs;
+}
+function renderGrid(seg){
+  const cols=seg.header;
+  let h='<table class="grid"><thead><tr><th class="rownum"></th>';
+  cols.forEach(c=>h+="<th>"+esc(c)+"</th>");
+  h+="</tr></thead><tbody>";
+  seg.rows.forEach((r,ri)=>{
+    h+='<tr><td class="rownum">'+(ri+1)+"</td>";
+    for(let k=0;k<cols.length;k++){
+      let v=r[k]!==undefined?r[k]:"";let cls="",disp;
+      if(v===""){disp="";}
+      else if(/^NULL$/i.test(v)){cls="nullcell";disp="[null]";}
+      else if(/^-?\d+$/.test(v)){cls="num";disp=esc(v);}
+      else{disp=esc(v).replace(/(←.*)$/,'<span class="newtag">$1</span>');}
+      h+='<td class="'+cls+'">'+(disp||"")+"</td>";
+    }
+    h+="</tr>";
+  });
+  return h+"</tbody></table>";
+}
+function renderSegs(segs){
+  let html="";
+  segs.forEach(s=>{
+    if(s.type==="grid")html+='<div class="grid-wrap">'+renderGrid(s)+"</div>";
+    else{const t=s.lines.join("\n").replace(/\s+$/,"");if(t.trim()!=="")html+='<div class="out-note">'+arrowize(t)+"</div>";}
+  });
+  return html;
+}
+
+/* ---------- elements ---------- */
+const els={
+  gutter:document.getElementById("gutter"),typed:document.getElementById("typed"),cursor:document.getElementById("cursor"),
+  editHint:document.getElementById("editHint"),exec:document.getElementById("btnExecute"),codewrap:document.getElementById("codewrap"),
+  scratch:document.getElementById("scratchBody"),counter:document.getElementById("counter"),
+  paneData:document.getElementById("paneData"),paneMsg:document.getElementById("paneMessages"),paneNotify:document.getElementById("paneNotify"),
+  stTotal:document.getElementById("stTotal"),stLnCol:document.getElementById("stLnCol"),stRuntime:document.getElementById("stRuntime"),stStep:document.getElementById("stStep"),
+  welcome:document.getElementById("welcomeView"),query:document.getElementById("queryView"),
+  tabWelcome:document.getElementById("tabWelcome"),tabQuery:document.getElementById("tabQuery"),
+};
+
+/* ---------- state ---------- */
+let idx=0;      // 0 = welcome, 1..36 = problems
+let step=0;     // 0 read, 1 typed, 2 executed
+let typing=false, typeTimer=null, skipFn=null, hintsOpen=false;
+
+/* ---------- contents overlay ---------- */
+(function(){const grid=document.getElementById("ovGrid");const units={};
+  DECK.forEach((p,i)=>{(units[p.unit]=units[p.unit]||[]).push({p,slide:i+1});});
+  Object.entries(units).forEach(([u,items])=>{const box=document.createElement("div");box.className="ov-unit";
+    box.innerHTML=`<h3>${u}</h3>`+items.map(it=>`<div class="ov-item" data-slide="${it.slide}"><span class="n">${it.p.num}</span><span class="t">${it.p.title}</span></div>`).join("");grid.appendChild(box);});
+  grid.addEventListener("click",e=>{const it=e.target.closest(".ov-item");if(!it)return;gotoSlide(+it.dataset.slide);closeOverlay();});
+})();
+function updateOvCurrent(){document.querySelectorAll(".ov-item").forEach(it=>it.classList.toggle("current",+it.dataset.slide===idx));}
+
+/* ---------- rendering ---------- */
+function setGutter(text){
+  const lines=Math.max(1,text.split("\n").length);
+  let g="";for(let i=1;i<=lines;i++)g+=(i>1?"\n":"")+i;
+  els.gutter.textContent=g;
+}
+function setLnCol(text){
+  const lines=text.split("\n");const ln=lines.length;const col=lines[lines.length-1].length+1;
+  els.stLnCol.textContent=`Ln ${ln}, Col ${col}`;
+}
+function renderScratch(){
+  const p=DECK[idx-1];
+  els.scratch.innerHTML=`
+    <span class="sc-num">${p.num}</span>
+    <div class="sc-unit">${p.unit}</div>
+    <div class="sc-title">${p.title}</div>
+    <div class="sc-sec"><span class="d"></span>Table schema <span class="sch-phase" id="schPhase">· before</span></div>
+    <div id="schemaBox"></div>
+    <div class="sc-sec"><span class="d"></span>Question</div>
+    <div class="sc-quest">${p.question}</div>
+    <div class="sc-sec"><span class="d"></span>Given — state before</div>
+    <div class="sc-given">${arrowize(p.given)}</div>
+    <div class="sc-sec"><span class="d"></span>Hints</div>
+    <div class="sc-hints ${hintsOpen?"":"locked"}">
+      <ol>${p.hints.map(h=>`<li>${esc(h)}</li>`).join("")}</ol>
+      <div class="lock">Press <kbd>H</kbd> to reveal hints</div>
+    </div>`;
+  updateSchema(step>=2?"after":"before");
+}
+
+/* ---------- live schema rendering ---------- */
+function colChanged(a,b){return a.t!==b.t||(a.b||[]).join(",")!==(b.b||[]).join(",");}
+function colRow(c,cls){
+  const isPK=(c.b||[]).includes("PK");
+  const badges=(c.b||[]).map(b=>'<span class="b-'+b+'">'+b+"</span>").join("");
+  return '<div class="sch-col '+(cls||"")+'"><span class="cn">'+(isPK?'<span class="key">🔑</span>':"")+esc(c.n)+'</span><span class="ct">'+esc(c.t)+'</span><span class="bd">'+badges+"</span></div>";
+}
+function tableCard(t,mode,before){
+  const bCols={};if(before)before.cols.forEach(c=>bCols[c.n]=c);
+  const aNames=new Set(t.cols.map(c=>c.n));
+  let rows="";
+  t.cols.forEach(c=>{
+    let cls="";
+    if(mode==="after"){ if(!before||!bCols[c.n])cls="add"; else if(colChanged(bCols[c.n],c))cls="mod"; }
+    else if(mode==="droptable")cls="drop";
+    rows+=colRow(c,cls);
+  });
+  if(mode==="after"&&before){before.cols.forEach(c=>{if(!aNames.has(c.n))rows+=colRow(c,"drop");});}
+  const drop=mode==="droptable";
+  return '<div class="sch-table '+(drop?"tdrop":"")+'"><div class="sch-th"><span class="ti2">▦</span>'+esc(t.name)+(drop?" — dropped":"")+"</div>"+rows+"</div>";
+}
+function renderSchema(sch,phase){
+  if(!sch)return '<div class="sch-none">Server / database-level operation — no table schema to show.</div>';
+  let html="";
+  if(phase==="after"){
+    const bByName={};(sch.before||[]).forEach(t=>bByName[t.name]=t);
+    const aNames=new Set((sch.after||[]).map(t=>t.name));
+    (sch.before||[]).forEach(t=>{if(!aNames.has(t.name))html+=tableCard(t,"droptable",null);});
+    (sch.after||[]).forEach(t=>html+=tableCard(t,"after",bByName[t.name]));
+    if(!html)html='<div class="sch-none">No tables — all dropped.</div>';
+  }else{
+    (sch.before||[]).forEach(t=>html+=tableCard(t,"before",null));
+    if(!html)html='<div class="sch-none">No tables yet.</div>';
+  }
+  if(sch.note)html+='<div class="sch-note">'+sch.note+"</div>";
+  return html;
+}
+function updateSchema(phase){
+  if(idx===0)return;
+  const sch=SCHEMA[DECK[idx-1].num];
+  const box=document.getElementById("schemaBox"),ph=document.getElementById("schPhase");
+  if(box)box.innerHTML=renderSchema(sch,phase);
+  if(ph){ph.textContent=phase==="after"?"· after · changes highlighted":"· before";ph.classList.toggle("after",phase==="after");}
+}
+function renderChrome(){
+  const isW=idx===0;
+  els.welcome.style.display=isW?"flex":"none";
+  els.query.style.display=isW?"none":"flex";
+  els.tabWelcome.classList.toggle("active",isW);
+  els.tabQuery.classList.toggle("active",!isW);
+  els.counter.innerHTML=isW?"":`Problem <b>${DECK[idx-1].num}</b> · <b>${idx}</b> / 36`;
+  els.stStep.textContent=isW?"":(["Read the problem","Query written","Executed ✓","Schema-check written","Schema verified ✓"][step]||"");
+  document.getElementById("hintBtn").style.visibility=isW?"hidden":"visible";
+  document.getElementById("resetBtn").style.visibility=isW?"hidden":"visible";
+  updateOvCurrent();
+}
+
+/* clear editor + output for a fresh problem/step0 */
+function clearEditor(){
+  clearTimeout(typeTimer);typing=false;skipFn=null;
+  els.typed.textContent="";els.cursor.classList.add("hidden");
+  els.editHint.style.display="";
+  setGutter("");setLnCol("");
+  els.exec.classList.remove("ready");
+  els.paneData.innerHTML='<div class="out-empty">No data output. Run the query (▶) to see results.</div>';
+  els.paneMsg.innerHTML='<div class="out-empty">—</div>';
+  els.stTotal.textContent="Total rows: ";els.stRuntime.textContent="";
+  switchPane("data");
+}
+
+function gotoSlide(i){
+  idx=Math.max(0,Math.min(36,i));step=0;hintsOpen=false;
+  clearEditor();
+  if(idx>0)renderScratch();
+  renderChrome();
+}
+
+/* ---------- steps ----------
+   DDL problems get a 4th action: a \d schema-check.
+   states: 0 read · 1 answer typed · 2 executed · 3 verify typed · 4 verified */
+function hasVerify(p){
+  const c=p.code.toUpperCase();
+  if(/CREATE\s+DATABASE|CREATE\s+USER/.test(c))return false;
+  return /^\s*(CREATE\s+TABLE|ALTER\s+TABLE|DROP\s+TABLE|TRUNCATE)/.test(c);
+}
+function maxStep(p){return hasVerify(p)?4:2;}
+function focusTable(p){
+  const s=SCHEMA[p.num];
+  if(s&&s.after&&s.after.length)return s.after[0].name;
+  if(s&&s.before&&s.before.length)return s.before[0].name;
+  return "students";
+}
+function verifySQL(p){
+  const t=focusTable(p);
+  return "SELECT column_name, data_type, character_maximum_length,\n       is_nullable, column_default\nFROM   information_schema.columns\nWHERE  table_name = '"+t+"'\nORDER  BY ordinal_position;";
+}
+
+function goStep(n){
+  if(idx===0)return;
+  step=n;
+  if(n===0){clearEditor();renderScratch();}
+  else if(n===1)startTyping(DECK[idx-1].code);
+  else if(n===2)execute();
+  else if(n===3)startTyping(verifySQL(DECK[idx-1]));
+  else if(n===4)runVerify();
+  renderChrome();
+}
+function startTyping(full){
+  full=full||DECK[idx-1].code;
+  els.editHint.style.display="none";
+  els.cursor.classList.remove("hidden");
+  els.exec.classList.remove("ready");
+  typing=true;let pos=0;els.typed.textContent="";
+  function finish(){typing=false;els.typed.innerHTML=hlSQL(full);setGutter(full);setLnCol(full);els.exec.classList.add("ready");renderChrome();}
+  function tick(){
+    if(pos>=full.length){finish();return;}
+    const ch=full[pos];const cur=full.slice(0,pos+1);els.typed.textContent=cur;setGutter(cur);setLnCol(cur);
+    els.codewrap.parentElement.scrollTop=els.codewrap.parentElement.scrollHeight;pos++;
+    let d=15+Math.random()*32;if(ch==="\n")d=90;else if(ch===" ")d=7;else if(",;()".includes(ch))d=50;
+    typeTimer=setTimeout(tick,d);
+  }
+  tick();
+  skipFn=()=>{if(typing){clearTimeout(typeTimer);pos=full.length;finish();}};
+}
+
+/* ---------- schema-check (information_schema query) result ---------- */
+function _cell(v,isNum){
+  if(v===null||v===undefined||v==="")return '<td class="nullcell">[null]</td>';
+  return "<td"+(isNum?' class="num"':"")+">"+esc(String(v))+"</td>";
+}
+function infoSchemaGrid(name,tbl){
+  let h='<div class="grid-wrap"><table class="grid"><thead><tr><th class="rownum"></th><th>column_name</th><th>data_type</th><th>character_maximum_length</th><th>is_nullable</th><th>column_default</th></tr></thead><tbody>';
+  tbl.cols.forEach((c,i)=>{
+    const b=c.b||[];
+    const m=c.t.match(/^varchar\((\d+)\)$/i);
+    const dtype=m||/^varchar$/i.test(c.t)?"character varying":c.t;
+    const len=m?m[1]:null;
+    const nn=(b.includes("NN")||b.includes("PK"))?"NO":"YES";
+    let def=null;
+    if(b.includes("SER"))def="nextval('"+name+"_"+c.n+"_seq'::regclass)";
+    else if(b.includes("DEF")&&c.n==="branch")def="'CSE'::character varying";
+    h+='<tr><td class="rownum">'+(i+1)+"</td><td>"+esc(c.n)+"</td><td>"+esc(dtype)+"</td>"+_cell(len,true)+"<td>"+nn+"</td>"+_cell(def,false)+"</tr>";
+  });
+  return h+"</tbody></table></div>";
+}
+function runVerify(){
+  const p=DECK[idx-1],t=focusTable(p),s=SCHEMA[p.num];
+  const dropped=!s||!s.after||!s.after.length;
+  els.cursor.classList.add("hidden");els.exec.classList.remove("ready");
+  els.paneData.innerHTML='<div class="out-empty"><span class="spinner"></span> Executing query on <b style="color:var(--accent)">&nbsp;postgres</b> …</div>';
+  els.stRuntime.textContent="running…";switchPane("data");
+  const ms=msecFor(p.num);
+  setTimeout(()=>{
+    if(dropped){
+      // information_schema returns 0 rows for a table that no longer exists
+      els.paneData.innerHTML='<div class="fade">'+infoSchemaGrid(t,{cols:[]})+'<div class="out-note">(0 rows) — no columns found; table "'+esc(t)+'" no longer exists.</div></div>';
+      els.paneMsg.innerHTML='<div class="msg-ok fade"><span class="cmd">SELECT 0</span>\n\nQuery returned successfully: 0 rows in '+ms+' msec.\n<span style="color:var(--muted)">Empty result confirms the table was dropped.</span></div>';
+      switchPane("data");els.stTotal.textContent="Total rows: 0";
+    }else{
+      const tbl=s.after.find(x=>x.name===t)||s.after[0];
+      els.paneData.innerHTML='<div class="fade">'+infoSchemaGrid(t,tbl)+'</div>';
+      els.paneMsg.innerHTML='<div class="msg-ok fade"><span class="cmd">SELECT '+tbl.cols.length+'</span>\n\nQuery returned successfully: '+tbl.cols.length+' rows in '+ms+' msec.</div>';
+      switchPane("data");els.stTotal.textContent="Total rows: "+tbl.cols.length;
+    }
+    els.stRuntime.textContent="✓ schema verified";
+    renderChrome();
+  },700);
+}
+function execute(){
+  const p=DECK[idx-1];
+  els.cursor.classList.add("hidden");els.exec.classList.remove("ready");
+  const kw=firstKw(p.code);
+  // The answer query itself always succeeds. Any "ERROR:" in the output is a
+  // deliberate teaching demonstration of a SEPARATE statement being rejected
+  // (1.1 proves the CHECK works; 3.2 proves the table is now gone).
+  const demoErr=/ERROR:/.test(p.output);
+  const ms=msecFor(p.num);
+  let cmdTag={CREATE:"CREATE TABLE",ALTER:"ALTER TABLE",DROP:"DROP TABLE",TRUNCATE:"TRUNCATE TABLE",INSERT:"INSERT 0 1",UPDATE:"UPDATE 1",DELETE:"DELETE 1",BEGIN:"BEGIN",COMMIT:"COMMIT",GRANT:"GRANT",REVOKE:"REVOKE",SELECT:"SELECT"}[kw]||"OK";
+  if(kw==="CREATE"&&/CREATE\s+DATABASE/i.test(p.code))cmdTag="CREATE DATABASE";
+  if(kw==="CREATE"&&/CREATE\s+USER/i.test(p.code))cmdTag="CREATE ROLE";
+  const segs=parseOutput(p.output);
+  const hasGrid=segs.some(s=>s.type==="grid");
+  const gridRows=segs.filter(s=>s.type==="grid").reduce((a,s)=>a+s.rows.length,0);
+  // spinner
+  els.paneData.innerHTML='<div class="out-empty"><span class="spinner"></span> Executing query on <b style="color:var(--accent)">&nbsp;postgres</b> …</div>';
+  els.stRuntime.textContent="running…";
+  switchPane("data");
+  setTimeout(()=>{
+    // Data Output — grid(s) + notes (a demo rejection shows here, in context)
+    els.paneData.innerHTML='<div class="fade">'+(renderSegs(segs)||'<div class="out-empty">Query returned successfully. No rows returned.</div>')+'</div>';
+    // Messages — the answer query succeeded
+    let msg='<div class="msg-ok fade"><span class="cmd">'+cmdTag+'</span>\n\nQuery returned successfully in '+ms+' msec.';
+    if(demoErr){
+      const errLine=(p.output.match(/ERROR:[^\n]*/)||["ERROR"])[0];
+      const sqlstate=/check constraint/i.test(errLine)?"23514":/does not exist/i.test(errLine)?"42P01":"—";
+      msg+='\n\n<span style="color:var(--muted)">— follow-up demonstration —</span>\n<span style="color:var(--err)">'+esc(errLine)+'</span>\n<span style="color:var(--muted)">SQL state: '+sqlstate+' · this rejection is the expected, correct behaviour.</span>';
+    }
+    els.paneMsg.innerHTML=msg+'</div>';
+    // default tab: results -> Data Output, otherwise Messages
+    switchPane(hasGrid?"data":"messages");
+    updateSchema("after");
+    // status bar
+    els.stTotal.textContent="Total rows: "+(hasGrid?gridRows:(kw==="INSERT"||kw==="UPDATE"||kw==="DELETE"?"1":""));
+    els.stRuntime.textContent="✓ "+ms+" msec";
+    renderChrome();
+  },700);
+}
+
+/* ---------- output tab switching ---------- */
+function switchPane(name){
+  document.querySelectorAll(".outtab").forEach(t=>t.classList.toggle("active",t.dataset.pane===name));
+  els.paneData.classList.toggle("active",name==="data");
+  els.paneMsg.classList.toggle("active",name==="messages");
+  els.paneNotify.classList.toggle("active",name==="notify");
+}
+document.querySelectorAll(".outtab").forEach(t=>t.addEventListener("click",()=>switchPane(t.dataset.pane)));
+
+/* ---------- navigation ---------- */
+function advance(){
+  if(idx===0){gotoSlide(1);return;}
+  if(typing&&skipFn){skipFn();return;}
+  if(step<maxStep(DECK[idx-1])){goStep(step+1);return;}
+  if(idx<36)gotoSlide(idx+1);
+}
+function back(){
+  if(idx>0&&step>0){goStep(step-1);return;}
+  if(idx>0)gotoSlide(idx-1);
+}
+function toggleHints(){if(idx===0)return;hintsOpen=!hintsOpen;const h=els.scratch.querySelector(".sc-hints");if(h)h.classList.toggle("locked",!hintsOpen);}
+function openOverlay(){document.getElementById("overlay").classList.add("open");}
+function closeOverlay(){document.getElementById("overlay").classList.remove("open");}
+
+/* ---------- events ---------- */
+els.codewrap.addEventListener("click",()=>{if(idx>0&&step===0)goStep(1);});
+els.exec.addEventListener("click",()=>{if(idx>0){if(typing&&skipFn){skipFn();return;}if(step===1)goStep(2);else if(step===0)goStep(1);else if(step===3)goStep(4);}});
+document.getElementById("startBtn").addEventListener("click",()=>gotoSlide(1));
+els.tabWelcome.addEventListener("click",e=>{if(!e.target.classList.contains("x"))gotoSlide(0);});
+els.tabQuery.addEventListener("click",e=>{if(!e.target.classList.contains("x"))gotoSlide(idx===0?1:idx);});
+document.getElementById("contentsBtn").addEventListener("click",openOverlay);
+document.getElementById("hintBtn").addEventListener("click",toggleHints);
+document.getElementById("resetBtn").addEventListener("click",()=>goStep(0));
+document.getElementById("ovClose").addEventListener("click",closeOverlay);
+document.getElementById("overlay").addEventListener("click",e=>{if(e.target.id==="overlay")closeOverlay();});
+document.addEventListener("keydown",e=>{
+  if(document.getElementById("overlay").classList.contains("open")){if(e.key==="Escape")closeOverlay();return;}
+  switch(e.key){
+    case" ":case"ArrowRight":case"Enter":case"PageDown":e.preventDefault();advance();break;
+    case"F5":e.preventDefault();if(idx>0&&!typing){if(step===1)goStep(2);else if(step===3)goStep(4);}break;
+    case"ArrowLeft":case"PageUp":e.preventDefault();back();break;
+    case"h":case"H":toggleHints();break;
+    case"r":case"R":goStep(0);break;
+    case"o":case"O":openOverlay();break;
+    case"Home":gotoSlide(0);break;
+    case"End":gotoSlide(36);break;
+    case"Escape":closeOverlay();break;
+  }
+});
+
+/* ---------- draggable output divider (up/down resize) ---------- */
+(function(){
+  const split=document.getElementById("vsplit"),bottom=document.getElementById("bottom"),work=document.querySelector(".work");
+  let dragging=false;
+  split.addEventListener("mousedown",e=>{dragging=true;split.classList.add("drag");document.body.style.userSelect="none";e.preventDefault();});
+  window.addEventListener("mousemove",e=>{
+    if(!dragging)return;
+    const wr=work.getBoundingClientRect();
+    let h=wr.bottom-e.clientY;
+    h=Math.max(80,Math.min(wr.height-170,h));
+    bottom.style.height=h+"px";
+  });
+  window.addEventListener("mouseup",()=>{if(dragging){dragging=false;split.classList.remove("drag");document.body.style.userSelect="";}});
+  window.addEventListener("resize",()=>{
+    if(!bottom.style.height)return;
+    const wr=work.getBoundingClientRect();
+    bottom.style.height=Math.max(80,Math.min(wr.height-170,parseInt(bottom.style.height)))+"px";
+  });
+})();
+
+/* ---------- theme toggle ---------- */
+document.getElementById("themeToggle").addEventListener("click",()=>{document.documentElement.classList.toggle("light");});
+
+/* ---------- object explorer tree ---------- */
+const ICON={server:"🖥️",pg:"🐘",coll:"📁",db:"🛢️",schema:"🗂️",table:"▦",role:"👤"};
+const TREE={label:"Servers",icon:"server",open:true,children:[
+  {label:"PostgreSQL 18",icon:"pg",open:true,children:[
+    {label:"Databases (2)",icon:"coll",open:true,children:[
+      {label:"postgres",icon:"db"},
+      {label:"university",icon:"db",open:true,current:true,children:[
+        {label:"Schemas (1)",icon:"coll",open:true,children:[
+          {label:"public",icon:"schema",open:true,children:[
+            {label:"Tables (2)",icon:"coll",open:true,children:[
+              {label:"students",icon:"table"},
+              {label:"courses",icon:"table"}
+            ]},
+            {label:"Views",icon:"coll"},
+            {label:"Functions",icon:"coll"},
+            {label:"Sequences (1)",icon:"coll"}
+          ]}
+        ]},
+        {label:"Login/Group Roles",icon:"coll"}
+      ]}
+    ]},
+    {label:"Login/Group Roles (3)",icon:"coll"},
+    {label:"Tablespaces (2)",icon:"coll"}
+  ]}
+]};
+function treeNode(n,depth){
+  const wrap=document.createElement("div");
+  const row=document.createElement("div");row.className="tnode"+(n.current?" current":"");
+  row.style.paddingLeft=(6+depth*14)+"px";
+  const kids=n.children&&n.children.length;
+  const tri=document.createElement("span");tri.className="tri";tri.textContent=kids?(n.open?"▾":"▸"):"";
+  const ico=document.createElement("span");ico.className="ticon";ico.textContent=ICON[n.icon]||"";
+  const lbl=document.createElement("span");lbl.className="tlbl";lbl.textContent=n.label;
+  row.append(tri,ico,lbl);wrap.appendChild(row);
+  const box=document.createElement("div");if(!n.open)box.style.display="none";
+  if(kids){n.children.forEach(c=>box.appendChild(treeNode(c,depth+1)));wrap.appendChild(box);
+    row.addEventListener("click",()=>{n.open=!n.open;tri.textContent=n.open?"▾":"▸";box.style.display=n.open?"":"none";});}
+  return wrap;
+}
+(function(){const t=document.getElementById("tree");t.appendChild(treeNode(TREE,0));})();
+function toggleTree(){document.getElementById("treePanel").classList.toggle("collapsed");document.getElementById("btnTree").classList.toggle("active");}
+document.getElementById("btnTree").addEventListener("click",toggleTree);
+document.getElementById("treeClose").addEventListener("click",toggleTree);
+
+renderChrome();
+</script>
+</body>
+</html>
