@@ -374,11 +374,11 @@
       <div class="welcome" id="welcomeView">
         <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></div>
         <h1>SQL Practice Workbook</h1>
-        <p>A live walkthrough of 36 PostgreSQL problems. For each one, the query is typed into the editor and executed — you see the answer written and the exact result it returns, right inside pgAdmin.</p>
+        <p>A live walkthrough of <span id="wcCount1">36</span> PostgreSQL problems. For each one, the query is typed into the editor and executed — you see the answer written and the exact result it returns, right inside pgAdmin.</p>
         <div class="stats">
           <div class="stat"><div class="k">Topic</div><div class="v">DDL · DML · TCL · <span>DCL</span></div></div>
           <div class="stat"><div class="k">Server</div><div class="v">PostgreSQL <span>18</span></div></div>
-          <div class="stat"><div class="k">Problems</div><div class="v"><span>36</span> worked</div></div>
+          <div class="stat"><div class="k">Problems</div><div class="v"><span id="wcCount2">36</span> worked</div></div>
         </div>
         <button class="go" id="startBtn">Open Query Tool ▸</button>
         <div class="hintline">Press <kbd>Space</kbd> / <kbd>→</kbd> to begin · <kbd>H</kbd> hints · <kbd>☰</kbd> contents</div>
@@ -478,11 +478,12 @@
 
 <!-- contents overlay -->
 <div id="overlay">
-  <div class="ov-head"><h2>Contents · 36 problems</h2><button class="ov-close" id="ovClose">×</button></div>
+  <div class="ov-head"><h2>Contents · <span id="ovCount">36</span> problems</h2><button class="ov-close" id="ovClose">×</button></div>
   <div class="ov-grid" id="ovGrid"></div>
 </div>
 
 <script src="data.js"></script>
+<script src="functions.js"></script>
 <script>
 /* ---------- editor syntax highlighter ---------- */
 const KW=new Set("CREATE DATABASE TABLE ALTER DROP ADD COLUMN CONSTRAINT PRIMARY KEY FOREIGN REFERENCES UNIQUE CHECK NOT NULL DEFAULT SET USING RENAME TO INSERT INTO VALUES SELECT FROM WHERE UPDATE DELETE TRUNCATE BEGIN COMMIT ROLLBACK GRANT REVOKE ON USER PASSWORD USAGE SCHEMA AND OR BETWEEN IN AS DO NOTHING CONFLICT EXCLUDED RETURNING WITH PUBLIC TYPE".split(/\s+/));
@@ -672,7 +673,7 @@ function renderChrome(){
   els.query.style.display=isW?"none":"flex";
   els.tabWelcome.classList.toggle("active",isW);
   els.tabQuery.classList.toggle("active",!isW);
-  els.counter.innerHTML=isW?"":`Problem <b>${DECK[idx-1].num}</b> · <b>${idx}</b> / 36`;
+  els.counter.innerHTML=isW?"":`Problem <b>${DECK[idx-1].num}</b> · <b>${idx}</b> / ${DECK.length}`;
   els.stStep.textContent=isW?"":(["Read the problem","Query written","Executed ✓","Schema-check written","Schema verified ✓"][step]||"");
   document.getElementById("hintBtn").style.visibility=isW?"hidden":"visible";
   document.getElementById("resetBtn").style.visibility=isW?"hidden":"visible";
@@ -693,7 +694,7 @@ function clearEditor(){
 }
 
 function gotoSlide(i){
-  idx=Math.max(0,Math.min(36,i));step=0;hintsOpen=false;
+  idx=Math.max(0,Math.min(DECK.length,i));step=0;hintsOpen=false;
   clearEditor();
   if(idx>0)renderScratch();
   applyWorkspace();
@@ -911,7 +912,7 @@ function advance(){
   if(idx===0){gotoSlide(1);return;}
   if(typing&&skipFn){skipFn();return;}
   if(step<maxStep(DECK[idx-1])){goStep(step+1);return;}
-  if(idx<36)gotoSlide(idx+1);
+  if(idx<DECK.length)gotoSlide(idx+1);
 }
 function back(){
   if(idx>0&&step>0){goStep(step-1);return;}
@@ -950,7 +951,7 @@ document.addEventListener("keydown",e=>{
     case"r":case"R":goStep(0);break;
     case"o":case"O":openOverlay();break;
     case"Home":gotoSlide(0);break;
-    case"End":gotoSlide(36);break;
+    case"End":gotoSlide(DECK.length);break;
     case"Escape":closeOverlay();break;
   }
 });
@@ -1022,6 +1023,8 @@ function toggleTree(){document.getElementById("treePanel").classList.toggle("col
 document.getElementById("btnTree").addEventListener("click",toggleTree);
 document.getElementById("treeClose").addEventListener("click",toggleTree);
 
+/* reflect the real problem count everywhere */
+["wcCount1","wcCount2","ovCount"].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent=DECK.length;});
 renderChrome();
 </script>
 </body>
